@@ -44,6 +44,7 @@ public class ChannelOrderReissueService {
     @Autowired private ConfigContextService configContextService;
     @Autowired private PayOrderService payOrderService;
     @Autowired private RefundOrderService refundOrderService;
+    @Autowired private PayOrderProcessService payOrderProcessService;
     @Autowired private PayMchNotifyService payMchNotifyService;
 
 
@@ -76,18 +77,15 @@ public class ChannelOrderReissueService {
 
             // 查询成功
             if(channelRetMsg.getChannelState() == ChannelRetMsg.ChannelState.CONFIRM_SUCCESS) {
-                if (payOrderService.updateIng2Success(payOrderId, channelRetMsg.getChannelOrderId())) {
+                if (payOrderService.updateIng2Success(payOrderId, channelRetMsg.getChannelOrderId(), channelRetMsg.getChannelUserId())) {
 
-                    // 通知商户系统
-                    if(StringUtils.isNotEmpty(payOrder.getNotifyUrl())){
-                        payMchNotifyService.payOrderNotify(payOrderService.getById(payOrderId));
-                    }
-
+                    //订单支付成功，其他业务逻辑
+                    payOrderProcessService.confirmSuccess(payOrder);
                 }
             }else if(channelRetMsg.getChannelState() == ChannelRetMsg.ChannelState.CONFIRM_FAIL){  //确认失败
 
                 //1. 更新支付订单表为失败状态
-                payOrderService.updateIng2Fail(payOrderId, channelRetMsg.getChannelOrderId(), channelRetMsg.getChannelErrCode(), channelRetMsg.getChannelErrMsg());
+                payOrderService.updateIng2Fail(payOrderId, channelRetMsg.getChannelOrderId(), channelRetMsg.getChannelUserId(), channelRetMsg.getChannelErrCode(), channelRetMsg.getChannelErrMsg());
 
             }
 

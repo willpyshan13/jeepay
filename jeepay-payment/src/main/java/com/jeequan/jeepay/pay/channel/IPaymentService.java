@@ -29,7 +29,7 @@ import com.jeequan.jeepay.pay.model.MchAppConfigContext;
 */
 public interface IPaymentService {
 
-    /* 获取到接口code **/
+    /** 获取到接口code **/
     String getIfCode();
 
     /** 是否支持该支付方式 */

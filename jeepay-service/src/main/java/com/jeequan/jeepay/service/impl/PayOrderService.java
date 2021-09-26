@@ -27,10 +27,8 @@ import com.jeequan.jeepay.core.entity.IsvInfo;
 import com.jeequan.jeepay.core.entity.MchInfo;
 import com.jeequan.jeepay.core.entity.PayOrder;
 import com.jeequan.jeepay.core.entity.PayWay;
-import com.jeequan.jeepay.service.mapper.IsvInfoMapper;
-import com.jeequan.jeepay.service.mapper.MchInfoMapper;
-import com.jeequan.jeepay.service.mapper.PayOrderMapper;
-import com.jeequan.jeepay.service.mapper.PayWayMapper;
+import com.jeequan.jeepay.core.utils.AmountUtil;
+import com.jeequan.jeepay.service.mapper.*;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -53,22 +51,23 @@ public class PayOrderService extends ServiceImpl<PayOrderMapper, PayOrder> {
     @Autowired private MchInfoMapper mchInfoMapper;
     @Autowired private IsvInfoMapper isvInfoMapper;
     @Autowired private PayWayMapper payWayMapper;
+    @Autowired private PayOrderDivisionRecordMapper payOrderDivisionRecordMapper;
 
     /** 更新订单状态  【订单生成】 --》 【支付中】 **/
-    public boolean updateInit2Ing(String payOrderId, String ifCode, String wayCode){
+    public boolean updateInit2Ing(String payOrderId, PayOrder payOrder){
 
         PayOrder updateRecord = new PayOrder();
         updateRecord.setState(PayOrder.STATE_ING);
-        updateRecord.setIfCode(ifCode);
-        updateRecord.setWayCode(wayCode);
+
+        //同时更新， 未确定 --》 已确定的其他信息。  如支付接口的确认、 费率的计算。
+        updateRecord.setIfCode(payOrder.getIfCode());
+        updateRecord.setWayCode(payOrder.getWayCode());
+        updateRecord.setMchFeeRate(payOrder.getMchFeeRate());
+        updateRecord.setMchFeeAmount(payOrder.getMchFeeAmount());
+        updateRecord.setChannelUser(payOrder.getChannelUser());
 
         return update(updateRecord, new LambdaUpdateWrapper<PayOrder>()
                 .eq(PayOrder::getPayOrderId, payOrderId).eq(PayOrder::getState, PayOrder.STATE_INIT));
-    }
-
-    /** 更新订单状态  【支付中】 --》 【支付成功】 **/
-    public boolean updateIng2Success(String payOrderId, String channelOrderNo){
-        return updateIng2Success(payOrderId, channelOrderNo, null);
     }
 
     /** 更新订单状态  【支付中】 --》 【支付成功】 **/
@@ -86,13 +85,14 @@ public class PayOrderService extends ServiceImpl<PayOrderMapper, PayOrder> {
 
 
     /** 更新订单状态  【支付中】 --》 【支付失败】 **/
-    public boolean updateIng2Fail(String payOrderId, String channelOrderNo, String channelErrCode, String channelErrMsg){
+    public boolean updateIng2Fail(String payOrderId, String channelOrderNo, String channelUserId, String channelErrCode, String channelErrMsg){
 
         PayOrder updateRecord = new PayOrder();
         updateRecord.setState(PayOrder.STATE_FAIL);
         updateRecord.setErrCode(channelErrCode);
         updateRecord.setErrMsg(channelErrMsg);
         updateRecord.setChannelOrderNo(channelOrderNo);
+        updateRecord.setChannelUser(channelUserId);
 
         return update(updateRecord, new LambdaUpdateWrapper<PayOrder>()
                 .eq(PayOrder::getPayOrderId, payOrderId).eq(PayOrder::getState, PayOrder.STATE_ING));
@@ -100,14 +100,14 @@ public class PayOrderService extends ServiceImpl<PayOrderMapper, PayOrder> {
 
 
     /** 更新订单状态  【支付中】 --》 【支付成功/支付失败】 **/
-    public boolean updateIng2SuccessOrFail(String payOrderId, Byte updateState, String channelOrderNo, String channelErrCode, String channelErrMsg){
+    public boolean updateIng2SuccessOrFail(String payOrderId, Byte updateState, String channelOrderNo, String channelUserId, String channelErrCode, String channelErrMsg){
 
         if(updateState == PayOrder.STATE_ING){
             return true;
         }else if(updateState == PayOrder.STATE_SUCCESS){
-            return updateIng2Success(payOrderId, channelOrderNo);
+            return updateIng2Success(payOrderId, channelOrderNo, channelUserId);
         }else if(updateState == PayOrder.STATE_FAIL){
-            return updateIng2Fail(payOrderId, channelOrderNo, channelErrCode, channelErrMsg);
+            return updateIng2Fail(payOrderId, channelOrderNo, channelUserId, channelErrCode, channelErrMsg);
         }
         return false;
     }
@@ -353,4 +353,26 @@ public class PayOrderService extends ServiceImpl<PayOrderMapper, PayOrder> {
         payListMap.addAll(refundListMap);
         return payListMap;
     }
+
+
+    /**
+    *  计算支付订单商家入账金额
+    * 商家订单入账金额 （支付金额 - 手续费 - 退款金额 - 总分账金额）
+    * @author terrfly
+    * @site https://www.jeequan.com
+    * @date 2021/8/26 16:39
+    */
+    public Long calMchIncomeAmount(PayOrder dbPayOrder){
+
+        //商家订单入账金额 （支付金额 - 手续费 - 退款金额 - 总分账金额）
+        Long mchIncomeAmount = dbPayOrder.getAmount() - dbPayOrder.getMchFeeAmount() - dbPayOrder.getRefundAmount();
+
+        //减去已分账金额
+        mchIncomeAmount -= payOrderDivisionRecordMapper.sumSuccessDivisionAmount(dbPayOrder.getPayOrderId());
+
+        return mchIncomeAmount <= 0 ? 0 : mchIncomeAmount;
+
+    }
+
+
 }

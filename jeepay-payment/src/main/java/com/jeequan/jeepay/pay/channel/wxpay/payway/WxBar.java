@@ -70,6 +70,11 @@ public class WxBar extends WxpayPaymentService {
         request.setSpbillCreateIp(payOrder.getClientIp());
         request.setAuthCode(bizRQ.getAuthCode().trim());
 
+        //订单分账， 将冻结商户资金。
+        if(isDivisionOrder(payOrder)){
+            request.setProfitSharing("Y");
+        }
+
         //放置isv信息
         WxpayKit.putApiIsvInfo(mchAppConfigContext, request);
 
@@ -86,6 +91,7 @@ public class WxBar extends WxpayPaymentService {
             WxPayMicropayResult wxPayMicropayResult = wxPayService.micropay(request);
 
             channelRetMsg.setChannelOrderId(wxPayMicropayResult.getTransactionId());
+            channelRetMsg.setChannelUserId(wxPayMicropayResult.getOpenid());
             channelRetMsg.setChannelState(ChannelRetMsg.ChannelState.CONFIRM_SUCCESS);
 
         } catch (WxPayException e) {
