@@ -36,7 +36,7 @@ CREATE TABLE `t_sys_role` (
 DROP TABLE IF EXISTS `t_sys_role_ent_rela`;
 CREATE TABLE `t_sys_role_ent_rela` (
   `role_id` VARCHAR(32) NOT NULL COMMENT '角色ID',
-  `ent_id` VARCHAR(32) NOT NULL COMMENT '权限ID' ,
+  `ent_id` VARCHAR(64) NOT NULL COMMENT '权限ID' ,
   PRIMARY KEY (`role_id`, `ent_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='系统角色权限关联表';
 
@@ -355,7 +355,7 @@ CREATE TABLE `t_refund_order` (
           `refund_reason` VARCHAR(256) NOT NULL COMMENT '退款原因',
           `channel_order_no` VARCHAR(32) DEFAULT NULL COMMENT '渠道订单号',
           `err_code` VARCHAR(128) DEFAULT NULL COMMENT '渠道错误码',
-          `err_msg` VARCHAR(256) DEFAULT NULL COMMENT '渠道错误描述',
+          `err_msg` VARCHAR(2048) DEFAULT NULL COMMENT '渠道错误描述',
           `channel_extra` VARCHAR(512) DEFAULT NULL COMMENT '特定渠道发起时额外参数',
           `notify_url` VARCHAR(128) DEFAULT NULL COMMENT '通知地址',
           `ext_param` VARCHAR(64) DEFAULT NULL COMMENT '扩展参数',
@@ -707,6 +707,7 @@ INSERT INTO t_pay_way (way_code, way_name) VALUES ('ALI_APP', '支付宝APP');
 INSERT INTO t_pay_way (way_code, way_name) VALUES ('ALI_WAP', '支付宝WAP');
 INSERT INTO t_pay_way (way_code, way_name) VALUES ('ALI_PC', '支付宝PC网站');
 INSERT INTO t_pay_way (way_code, way_name) VALUES ('ALI_QR', '支付宝二维码');
+INSERT INTO t_pay_way (way_code, way_name) VALUES ('ALI_LITE', '支付宝小程序');
 
 INSERT INTO t_pay_way (way_code, way_name) VALUES ('WX_BAR', '微信条码');
 INSERT INTO t_pay_way (way_code, way_name) VALUES ('WX_JSAPI', '微信公众号');
@@ -717,6 +718,8 @@ INSERT INTO t_pay_way (way_code, way_name) VALUES ('WX_LITE', '微信小程序')
 
 INSERT INTO t_pay_way (way_code, way_name) VALUES ('YSF_BAR', '云闪付条码');
 INSERT INTO t_pay_way (way_code, way_name) VALUES ('YSF_JSAPI', '云闪付jsapi');
+
+INSERT INTO t_pay_way (way_code, way_name) VALUES ('PP_PC', 'PayPal支付');
 
 -- 初始化支付接口定义
 INSERT INTO t_pay_interface_define (if_code, if_name, is_mch_mode, is_isv_mode, config_page_type, isv_params, isvsub_mch_params, normal_mch_params, way_codes, icon, bg_color, state, remark)
@@ -742,3 +745,11 @@ VALUES ('ysfpay', '云闪付官方', 0, 1, 1,
         NULL,
         '[{"wayCode": "YSF_BAR"}, {"wayCode": "ALI_JSAPI"}, {"wayCode": "WX_JSAPI"}, {"wayCode": "ALI_BAR"}, {"wayCode": "WX_BAR"}]',
         'http://jeequan.oss-cn-beijing.aliyuncs.com/jeepay/img/ysfpay.png', 'red', 1, '云闪付官方通道');
+
+INSERT INTO t_pay_interface_define (if_code, if_name, is_mch_mode, is_isv_mode, config_page_type, isv_params, isvsub_mch_params, normal_mch_params, way_codes, icon, bg_color, state, remark)
+VALUES ('pppay', 'PayPal支付', 1, 0, 1,
+        NULL,
+        NULL,
+        '[{"name":"sandbox","desc":"环境配置","type":"radio","verify":"required","values":"1,0","titles":"沙箱环境, 生产环境"},{"name":"clientId","desc":"Client ID（客户端ID）","type":"text","verify":"required"},{"name":"secret","desc":"Secret（密钥）","type":"text","verify":"required","star":"1"},{"name":"refundWebhook","desc":"退款 Webhook id","type":"text","verify":"required"},{"name":"notifyWebhook","desc":"通知 Webhook id","type":"text","verify":"required"}]',
+        '[{"wayCode": "PP_PC"}]',
+        'http://jeequan.oss-cn-beijing.aliyuncs.com/jeepay/img/paypal.png', '#005ea6', 1, 'PayPal官方通道');

@@ -71,9 +71,9 @@ public class YsfpayPaymentService extends AbstractPaymentService {
 
 
     /** 封装参数 & 统一请求 **/
-    public JSONObject packageParamAndReq(String apiUri, JSONObject reqParams, String logPrefix, IsvConfigContext isvConfigContext, MchAppConfigContext mchAppConfigContext) throws Exception {
+    public JSONObject packageParamAndReq(String apiUri, JSONObject reqParams, String logPrefix, MchAppConfigContext mchAppConfigContext) throws Exception {
 
-        YsfpayIsvParams isvParams = isvConfigContext.getIsvParamsByIfCode(getIfCode(), YsfpayIsvParams.class);
+        YsfpayIsvParams isvParams = (YsfpayIsvParams)configContextQueryService.queryIsvParams(mchAppConfigContext.getMchInfo().getIsvNo(), getIfCode());
 
         if (isvParams.getSerProvId() == null) {
             log.error("服务商配置为空：isvParams：{}", isvParams);
@@ -81,7 +81,7 @@ public class YsfpayPaymentService extends AbstractPaymentService {
         }
 
         reqParams.put("serProvId", isvParams.getSerProvId()); //云闪付服务商标识
-        YsfpayIsvsubMchParams isvsubMchParams = mchAppConfigContext.getIsvsubMchParamsByIfCode(getIfCode(), YsfpayIsvsubMchParams.class);
+        YsfpayIsvsubMchParams isvsubMchParams = (YsfpayIsvsubMchParams) configContextQueryService.queryIsvsubMchParams(mchAppConfigContext.getMchNo(), mchAppConfigContext.getAppId(), getIfCode());
         reqParams.put("merId", isvsubMchParams.getMerId()); // 商户号
 
         //签名

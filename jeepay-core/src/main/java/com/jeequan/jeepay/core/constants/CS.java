@@ -27,6 +27,9 @@ import java.util.Set;
  **/
 public class CS {
 
+    //登录图形验证码缓存时间，单位：s
+    public static final int VERCODE_CACHE_TIME = 60;
+
     /** 系统类型定义 **/
     public interface SYS_TYPE{
         String MCH = "MCH";
@@ -141,6 +144,7 @@ public class CS {
         String WXPAY = "wxpay";     // 微信官方支付
         String YSFPAY = "ysfpay";   // 云闪付开放平台
         String XXPAY = "xxpay";     // 小新支付
+        String PPPAY = "pppay";     // Paypal 支付
     }
 
 
@@ -166,6 +170,8 @@ public class CS {
         String WX_BAR = "WX_BAR";  //微信条码支付
         String WX_H5 = "WX_H5";  //微信H5支付
         String WX_NATIVE = "WX_NATIVE";  //微信扫码支付
+
+        String PP_PC = "PP_PC"; // Paypal 支付
     }
 
     //支付数据包 类型

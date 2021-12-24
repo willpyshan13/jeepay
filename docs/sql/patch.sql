@@ -221,3 +221,20 @@ insert into t_sys_entitlement values('ENT_PAY_ORDER_REFUND', '按钮：订单退
 ## -- ++++ [v1.8.0] ===> [v1.9.0] ++++
 -- 增加小新支付通道
 INSERT INTO t_pay_interface_define (if_code, if_name, is_mch_mode, is_isv_mode, config_page_type, isv_params, isvsub_mch_params, normal_mch_params, way_codes, icon, bg_color, state, remark, created_at, updated_at) VALUES ('xxpay', '小新支付', 1, 0, 1, null, null, '[{"name":"mchId","desc":"商户号","type":"text","verify":"required"},{"name":"key","desc":"私钥","type":"text","verify":"required","star":"1"},{"name":"payUrl","desc":"支付网关地址","type":"text","verify":"required"}]', '[{"wayCode": "ALI_BAR"}, {"wayCode": "ALI_JSAPI"}, {"wayCode": "WX_BAR"}, {"wayCode": "WX_JSAPI"}]', 'http://jeequan.oss-cn-beijing.aliyuncs.com/jeepay/img/xxpay.png', '#2E4360', 1, null, '2021-09-20 15:21:04', '2021-09-30 14:55:32.907325');
+
+## -- ++++ [v1.9.0] ===> [v1.10.0] ++++
+alter table t_refund_order modify err_msg varchar(2048) null comment '渠道错误描述';
+
+-- 增加角色权限字段长度
+alter table `t_sys_role_ent_rela` MODIFY `ent_id` VARCHAR(64) NOT NULL COMMENT '权限ID' after `role_id`;
+
+## -- ++++ [v1.10.0] ===> [v1.11.0] 待发布 ++++
+INSERT INTO t_pay_way (way_code, way_name) VALUES ('ALI_LITE', '支付宝小程序');
+INSERT INTO t_pay_way (way_code, way_name) VALUES ('PP_PC', 'PayPal支付');
+INSERT INTO t_pay_interface_define (if_code, if_name, is_mch_mode, is_isv_mode, config_page_type, isv_params, isvsub_mch_params, normal_mch_params, way_codes, icon, bg_color, state, remark)
+VALUES ('pppay', 'PayPal支付', 1, 0, 1,
+        NULL,
+        NULL,
+        '[{"name":"sandbox","desc":"环境配置","type":"radio","verify":"required","values":"1,0","titles":"沙箱环境, 生产环境"},{"name":"clientId","desc":"Client ID（客户端ID）","type":"text","verify":"required"},{"name":"secret","desc":"Secret（密钥）","type":"text","verify":"required","star":"1"},{"name":"refundWebhook","desc":"退款 Webhook id","type":"text","verify":"required"},{"name":"notifyWebhook","desc":"通知 Webhook id","type":"text","verify":"required"}]',
+        '[{"wayCode": "PP_PC"}]',
+        'http://jeequan.oss-cn-beijing.aliyuncs.com/jeepay/img/paypal.png', '#005ea6', 1, 'PayPal官方通道');

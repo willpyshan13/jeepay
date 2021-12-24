@@ -16,8 +16,6 @@
 package com.jeequan.jeepay.pay.ctrl.payorder;
 
 import cn.hutool.core.date.DateUtil;
-import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
-import com.jeequan.jeepay.components.mq.model.PayOrderDivisionMQ;
 import com.jeequan.jeepay.components.mq.model.PayOrderReissueMQ;
 import com.jeequan.jeepay.components.mq.vender.IMQSender;
 import com.jeequan.jeepay.core.constants.CS;
@@ -27,19 +25,18 @@ import com.jeequan.jeepay.core.entity.MchPayPassage;
 import com.jeequan.jeepay.core.entity.PayOrder;
 import com.jeequan.jeepay.core.exception.BizException;
 import com.jeequan.jeepay.core.model.ApiRes;
+import com.jeequan.jeepay.core.model.DBApplicationConfig;
 import com.jeequan.jeepay.core.utils.*;
 import com.jeequan.jeepay.pay.channel.IPaymentService;
 import com.jeequan.jeepay.pay.ctrl.ApiController;
 import com.jeequan.jeepay.pay.exception.ChannelException;
-import com.jeequan.jeepay.pay.model.IsvConfigContext;
 import com.jeequan.jeepay.pay.model.MchAppConfigContext;
 import com.jeequan.jeepay.pay.rqrs.msg.ChannelRetMsg;
 import com.jeequan.jeepay.pay.rqrs.payorder.UnifiedOrderRQ;
 import com.jeequan.jeepay.pay.rqrs.payorder.UnifiedOrderRS;
 import com.jeequan.jeepay.pay.rqrs.payorder.payway.QrCashierOrderRQ;
 import com.jeequan.jeepay.pay.rqrs.payorder.payway.QrCashierOrderRS;
-import com.jeequan.jeepay.pay.service.ConfigContextService;
-import com.jeequan.jeepay.pay.service.PayMchNotifyService;
+import com.jeequan.jeepay.pay.service.ConfigContextQueryService;
 import com.jeequan.jeepay.pay.service.PayOrderProcessService;
 import com.jeequan.jeepay.service.impl.MchPayPassageService;
 import com.jeequan.jeepay.service.impl.PayOrderService;
@@ -64,7 +61,7 @@ public abstract class AbstractPayOrderController extends ApiController {
 
     @Autowired private MchPayPassageService mchPayPassageService;
     @Autowired private PayOrderService payOrderService;
-    @Autowired private ConfigContextService configContextService;
+    @Autowired private ConfigContextQueryService configContextQueryService;
     @Autowired private PayOrderProcessService payOrderProcessService;
     @Autowired private SysConfigService sysConfigService;
     @Autowired private IMQSender mqSender;
@@ -105,7 +102,6 @@ public abstract class AbstractPayOrderController extends ApiController {
                 bizRQ.setNotifyUrl(payOrder.getNotifyUrl());
                 bizRQ.setReturnUrl(payOrder.getReturnUrl());
                 bizRQ.setChannelExtra(payOrder.getChannelExtra());
-                bizRQ.setChannelUser(payOrder.getChannelUser());
                 bizRQ.setExtParam(payOrder.getExtParam());
                 bizRQ.setDivisionMode(payOrder.getDivisionMode());
             }
@@ -126,7 +122,7 @@ public abstract class AbstractPayOrderController extends ApiController {
             }
 
             //获取支付参数 (缓存数据) 和 商户信息
-            MchAppConfigContext mchAppConfigContext = configContextService.getMchAppConfigContext(mchNo, appId);
+            MchAppConfigContext mchAppConfigContext = configContextQueryService.queryMchInfoAndAppInfo(mchNo, appId);
             if(mchAppConfigContext == null){
                 throw new BizException("获取商户应用信息失败");
             }
@@ -146,9 +142,11 @@ public abstract class AbstractPayOrderController extends ApiController {
                 QrCashierOrderRS qrCashierOrderRS = new QrCashierOrderRS();
                 QrCashierOrderRQ qrCashierOrderRQ = (QrCashierOrderRQ)bizRQ;
 
-                String payUrl = sysConfigService.getDBApplicationConfig().genUniJsapiPayUrl(payOrderId);
+                DBApplicationConfig dbApplicationConfig = sysConfigService.getDBApplicationConfig();
+
+                String payUrl = dbApplicationConfig.genUniJsapiPayUrl(payOrderId);
                 if(CS.PAY_DATA_TYPE.CODE_IMG_URL.equals(qrCashierOrderRQ.getPayDataType())){ //二维码地址
-                    qrCashierOrderRS.setCodeImgUrl(sysConfigService.getDBApplicationConfig().genScanImgUrl(payUrl));
+                    qrCashierOrderRS.setCodeImgUrl(dbApplicationConfig.genScanImgUrl(payUrl));
 
                 }else{ //默认都为跳转地址方式
                     qrCashierOrderRS.setPayUrl(payUrl);
@@ -172,6 +170,10 @@ public abstract class AbstractPayOrderController extends ApiController {
                 payOrder = genPayOrder(bizRQ, mchInfo, mchApp, ifCode, mchPayPassage);
             }else{
                 payOrder.setIfCode(ifCode);
+
+                // 查询支付方式的费率，并 在更新ing时更新费率信息
+                payOrder.setMchFeeRate(mchPayPassage.getRate());
+                payOrder.setMchFeeAmount(AmountUtil.calPercentageFee(payOrder.getAmount(), payOrder.getMchFeeRate())); //商户手续费,单位分
             }
 
             //预先校验
@@ -242,7 +244,7 @@ public abstract class AbstractPayOrderController extends ApiController {
         payOrder.setSubject(rq.getSubject()); //商品标题
         payOrder.setBody(rq.getBody()); //商品描述信息
 //        payOrder.setChannelExtra(rq.getChannelExtra()); //特殊渠道发起的附件额外参数,  是否应该删除该字段了？？ 比如authCode不应该记录， 只是在传输阶段存在的吧？  之前的为了在payOrder对象需要传参。
-        payOrder.setChannelUser(rq.getChannelUser()); //渠道用户标志
+        payOrder.setChannelUser(rq.getChannelUserId()); //渠道用户标志
         payOrder.setExtParam(rq.getExtParam()); //商户扩展参数
         payOrder.setNotifyUrl(rq.getNotifyUrl()); //异步通知地址
         payOrder.setReturnUrl(rq.getReturnUrl()); //页面跳转地址
@@ -283,20 +285,16 @@ public abstract class AbstractPayOrderController extends ApiController {
 
         if(mchAppConfigContext.getMchType() == MchInfo.TYPE_NORMAL){ //普通商户
 
-            if(mchAppConfigContext.getNormalMchParamsByIfCode(ifCode) == null){
+            if(configContextQueryService.queryNormalMchParams(mchAppConfigContext.getMchNo(), mchAppConfigContext.getAppId(), ifCode) == null){
                 throw new BizException("商户应用参数未配置");
             }
         }else if(mchAppConfigContext.getMchType() == MchInfo.TYPE_ISVSUB){ //特约商户
 
-            mchAppConfigContext = configContextService.getMchAppConfigContext(mchAppConfigContext.getMchNo(), mchAppConfigContext.getAppId());
-
-            if(mchAppConfigContext == null || mchAppConfigContext.getIsvsubMchParamsByIfCode(ifCode) == null){
+            if(configContextQueryService.queryIsvsubMchParams(mchAppConfigContext.getMchNo(), mchAppConfigContext.getAppId(), ifCode) == null){
                 throw new BizException("特约商户参数未配置");
             }
 
-            IsvConfigContext isvConfigContext = configContextService.getIsvConfigContext(mchAppConfigContext.getMchInfo().getIsvNo());
-
-            if(isvConfigContext == null || isvConfigContext.getIsvParamsByIfCode(ifCode) == null){
+            if(configContextQueryService.queryIsvParams(mchAppConfigContext.getMchInfo().getIsvNo(), ifCode) == null){
                 throw new BizException("服务商参数未配置");
             }
         }
@@ -396,7 +394,7 @@ public abstract class AbstractPayOrderController extends ApiController {
             bizRS.setErrMsg(bizRS.getChannelRetMsg() != null ? bizRS.getChannelRetMsg().getChannelErrMsg() : null);
         }
 
-        return ApiRes.okWithSign(bizRS, configContextService.getMchAppConfigContext(bizRQ.getMchNo(), bizRQ.getAppId()).getMchApp().getAppSecret());
+        return ApiRes.okWithSign(bizRS, configContextQueryService.queryMchApp(bizRQ.getMchNo(), bizRQ.getAppId()).getAppSecret());
     }
 
 

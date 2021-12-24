@@ -56,7 +56,7 @@ public class YsfpayRefundService extends AbstractRefundService {
     public ChannelRetMsg refund(RefundOrderRQ bizRQ, RefundOrder refundOrder, PayOrder payOrder, MchAppConfigContext mchAppConfigContext) throws Exception {
         ChannelRetMsg channelRetMsg = new ChannelRetMsg();
         JSONObject reqParams = new JSONObject();
-        String orderType = YsfHttpUtil.getOrderTypeByBar(payOrder.getWayCode());
+        String orderType = YsfHttpUtil.getOrderTypeByCommon(payOrder.getWayCode());
         String logPrefix = "【云闪付("+orderType+")退款】";
         try {
             reqParams.put("origOrderNo", payOrder.getPayOrderId()); // 原交易订单号
@@ -66,7 +66,7 @@ public class YsfpayRefundService extends AbstractRefundService {
             reqParams.put("orderType ", orderType); // 订单类型
 
             //封装公共参数 & 签名 & 调起http请求 & 返回响应数据并包装为json格式。
-            JSONObject resJSON = ysfpayPaymentService.packageParamAndReq("/gateway/api/pay/refund", reqParams, logPrefix, mchAppConfigContext.getIsvConfigContext(), mchAppConfigContext);
+            JSONObject resJSON = ysfpayPaymentService.packageParamAndReq("/gateway/api/pay/refund", reqParams, logPrefix, mchAppConfigContext);
             log.info("查询订单 payorderId:{}, 返回结果:{}", payOrder.getPayOrderId(), resJSON);
             if(resJSON == null){
                 channelRetMsg.setChannelState(ChannelRetMsg.ChannelState.UNKNOWN); // 状态不明确
@@ -94,14 +94,14 @@ public class YsfpayRefundService extends AbstractRefundService {
     public ChannelRetMsg query(RefundOrder refundOrder, MchAppConfigContext mchAppConfigContext) throws Exception {
         ChannelRetMsg channelRetMsg = new ChannelRetMsg();
         JSONObject reqParams = new JSONObject();
-        String orderType = YsfHttpUtil.getOrderTypeByBar(refundOrder.getWayCode());
+        String orderType = YsfHttpUtil.getOrderTypeByCommon(refundOrder.getWayCode());
         String logPrefix = "【云闪付("+orderType+")退款查询】";
         try {
             reqParams.put("orderNo", refundOrder.getRefundOrderId()); // 退款订单号
             reqParams.put("origOrderNo", refundOrder.getPayOrderId()); // 原交易订单号
 
             //封装公共参数 & 签名 & 调起http请求 & 返回响应数据并包装为json格式。
-            JSONObject resJSON = ysfpayPaymentService.packageParamAndReq("/gateway/api/pay/refundQuery", reqParams, logPrefix, mchAppConfigContext.getIsvConfigContext(), mchAppConfigContext);
+            JSONObject resJSON = ysfpayPaymentService.packageParamAndReq("/gateway/api/pay/refundQuery", reqParams, logPrefix, mchAppConfigContext);
             log.info("查询订单 refundOrderId:{}, 返回结果:{}", refundOrder.getRefundOrderId(), resJSON);
             if(resJSON == null){
                 channelRetMsg.setChannelState(ChannelRetMsg.ChannelState.UNKNOWN); // 状态不明确

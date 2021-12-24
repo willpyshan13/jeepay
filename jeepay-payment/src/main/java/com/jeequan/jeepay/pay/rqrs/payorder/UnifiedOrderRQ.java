@@ -16,6 +16,7 @@
 package com.jeequan.jeepay.pay.rqrs.payorder;
 
 import com.alibaba.fastjson.JSONObject;
+import com.alibaba.fastjson.annotation.JSONField;
 import com.jeequan.jeepay.core.constants.CS;
 import com.jeequan.jeepay.pay.rqrs.AbstractMchAppRQ;
 import com.jeequan.jeepay.pay.rqrs.payorder.payway.*;
@@ -78,9 +79,6 @@ public class UnifiedOrderRQ extends AbstractMchAppRQ {
 
     /** 特定渠道发起额外参数 **/
     private String channelExtra;
-
-    /** 渠道用户标识,如微信openId,支付宝账号 **/
-    private String channelUser;
 
     /** 商户扩展参数 **/
     private String extParam;
@@ -148,15 +146,19 @@ public class UnifiedOrderRQ extends AbstractMchAppRQ {
             AliQrOrderRQ bizRQ = JSONObject.parseObject(StringUtils.defaultIfEmpty(this.channelExtra, "{}"), AliQrOrderRQ.class);
             BeanUtils.copyProperties(this, bizRQ);
             return bizRQ;
+        }else if (CS.PAY_WAY_CODE.PP_PC.equals(wayCode)){
+            PPPcOrderRQ bizRQ = JSONObject.parseObject(StringUtils.defaultIfEmpty(this.channelExtra, "{}"), PPPcOrderRQ.class);
+            BeanUtils.copyProperties(this, bizRQ);
+            return bizRQ;
         }
 
         return this;
     }
 
     /** 获取渠道用户ID **/
+    @JSONField(serialize = false)
     public String getChannelUserId(){
-        return this.channelUser;
+        return null;
     }
-
 
 }

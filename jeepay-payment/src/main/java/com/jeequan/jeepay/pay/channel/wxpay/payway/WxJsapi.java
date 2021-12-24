@@ -26,6 +26,7 @@ import com.jeequan.jeepay.core.entity.PayOrder;
 import com.jeequan.jeepay.core.exception.BizException;
 import com.jeequan.jeepay.pay.channel.wxpay.WxpayPaymentService;
 import com.jeequan.jeepay.pay.channel.wxpay.kits.WxpayKit;
+import com.jeequan.jeepay.pay.model.WxServiceWrapper;
 import com.jeequan.jeepay.pay.rqrs.AbstractRS;
 import com.jeequan.jeepay.pay.rqrs.payorder.UnifiedOrderRQ;
 import com.jeequan.jeepay.pay.rqrs.payorder.payway.WxJsapiOrderRQ;
@@ -66,7 +67,11 @@ public class WxJsapi extends WxpayPaymentService {
 
         WxPayUnifiedOrderRequest req = buildUnifiedOrderRequest(payOrder, mchAppConfigContext);
         req.setTradeType(WxPayConstants.TradeType.JSAPI);
-        req.setOpenid(bizRQ.getOpenid());
+        if(mchAppConfigContext.isIsvsubMch() && StringUtils.isNotBlank(req.getSubAppId())){ // 特约商户 && 传了子商户appId
+            req.setSubOpenid(bizRQ.getOpenid()); // 用户在子商户appid下的唯一标识
+        }else {
+            req.setOpenid(bizRQ.getOpenid());
+        }
 
         // 构造函数响应数据
         WxJsapiOrderRS res = ApiResBuilder.buildSuccess(WxJsapiOrderRS.class);
@@ -76,7 +81,8 @@ public class WxJsapi extends WxpayPaymentService {
         // 调起上游接口：
         // 1. 如果抛异常，则订单状态为： 生成状态，此时没有查单处理操作。 订单将超时关闭
         // 2. 接口调用成功， 后续异常需进行捕捉， 如果 逻辑代码出现异常则需要走完正常流程，此时订单状态为： 支付中， 需要查单处理。
-        WxPayService wxPayService = mchAppConfigContext.getWxServiceWrapper().getWxPayService();
+        WxServiceWrapper wxServiceWrapper = configContextQueryService.getWxServiceWrapper(mchAppConfigContext);
+        WxPayService wxPayService = wxServiceWrapper.getWxPayService();
         try {
             WxPayMpOrderResult payResult = wxPayService.createOrder(req);
             JSONObject resJSON = (JSONObject) JSON.toJSON(payResult);
